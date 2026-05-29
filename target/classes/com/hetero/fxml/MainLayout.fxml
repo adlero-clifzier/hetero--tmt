@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.hetero.controller.MainLayoutController"
+            prefWidth="1100" prefHeight="720">
+
+    <!-- ── Sidebar ── -->
+    <left>
+        <VBox styleClass="sidebar" spacing="0">
+            <Label text="Hetero" styleClass="sidebar-brand"/>
+            <Label fx:id="lblUserName" text="" styleClass="sidebar-user"/>
+            <Separator/>
+            <Label text="WORKSPACE" styleClass="nav-section"/>
+            <Button fx:id="btnDashboard"  text="⬛  Dashboard"  styleClass="nav-button" onAction="#onNavDashboard"  maxWidth="Infinity"/>
+            <Button fx:id="btnAllTasks"   text="☰  All Tasks"   styleClass="nav-button" onAction="#onNavAllTasks"   maxWidth="Infinity"/>
+            <Button fx:id="btnToday"      text="◷  Today"       styleClass="nav-button" onAction="#onNavToday"      maxWidth="Infinity"/>
+            <Button fx:id="btnCategories" text="⊞  Categories"  styleClass="nav-button" onAction="#onNavCategories" maxWidth="Infinity"/>
+            <Region VBox.vgrow="ALWAYS"/>
+            <Separator/>
+            <Button fx:id="btnSettings"   text="⚙  Settings"    styleClass="nav-button" onAction="#onNavSettings"   maxWidth="Infinity"/>
+        </VBox>
+    </left>
+
+    <!-- ── Topbar ── -->
+    <top>
+        <HBox styleClass="topbar" alignment="CENTER_LEFT" spacing="10">
+            <Label fx:id="lblViewTitle" text="Dashboard" styleClass="view-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <ComboBox fx:id="cmbMode" onAction="#onModeChanged" promptText="Mode"/>
+            <Label fx:id="lblPerfMetric" text="Ready" styleClass="perf-label"/>
+        </HBox>
+    </top>
+
+    <!-- ── Center ── -->
+    <center>
+        <StackPane fx:id="contentArea" styleClass="content-area"/>
+    </center>
+
+</BorderPane>

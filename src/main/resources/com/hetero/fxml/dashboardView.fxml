@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<ScrollPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.hetero.controller.DashboardController"
+            fitToWidth="true" styleClass="scroll-pane">
+    <VBox spacing="20" style="-fx-padding:28;">
+
+        <!-- Stat cards row -->
+        <HBox spacing="16">
+            <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER" spacing="4">
+                <Label fx:id="lblTotal"   text="0" styleClass="stat-value"/>
+                <Label text="Total Tasks"    styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER" spacing="4">
+                <Label fx:id="lblPending" text="0" styleClass="stat-value" style="-fx-text-fill:#fb923c;"/>
+                <Label text="Pending"        styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER" spacing="4">
+                <Label fx:id="lblDone"    text="0" styleClass="stat-value" style="-fx-text-fill:#4ade80;"/>
+                <Label text="Completed"      styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER" spacing="4">
+                <Label fx:id="lblToday"   text="0" styleClass="stat-value" style="-fx-text-fill:#14b8a6;"/>
+                <Label text="Due Today"      styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+
+        <!-- Two-column lower section -->
+        <HBox spacing="16" VBox.vgrow="ALWAYS">
+            <!-- Due Today list -->
+            <VBox styleClass="card" HBox.hgrow="ALWAYS" spacing="10">
+                <Label text="Due Today" style="-fx-text-fill:#e2e8f0;-fx-font-size:13px;-fx-font-weight:bold;"/>
+                <Separator/>
+                <ListView fx:id="listToday" prefHeight="220" styleClass="list-view"/>
+            </VBox>
+            <!-- Recent tasks -->
+            <VBox styleClass="card" HBox.hgrow="ALWAYS" spacing="10">
+                <Label text="Recent Tasks" style="-fx-text-fill:#e2e8f0;-fx-font-size:13px;-fx-font-weight:bold;"/>
+                <Separator/>
+                <ListView fx:id="listRecent" prefHeight="220" styleClass="list-view"/>
+            </VBox>
+        </HBox>
+
+    </VBox>
+</ScrollPane>

@@ -1,0 +1,219 @@
+/* ═══════════════════════════════════════════════════════════════
+   Hetero Design System — Dark Mode Theme
+   Color palette mirrors the CSS custom-property specification.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Root / Scene ─────────────────────────────────────────────── */
+.root {
+    -fx-background-color: #0d0f14;
+    -fx-font-family: "Segoe UI", "Inter", sans-serif;
+    -fx-font-size: 13px;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────── */
+.sidebar {
+    -fx-background-color: #111318;
+    -fx-border-color: #252c3b;
+    -fx-border-width: 0 1 0 0;
+    -fx-padding: 0;
+    -fx-min-width: 210px;
+    -fx-max-width: 210px;
+    -fx-pref-width: 210px;
+}
+
+.sidebar-header {
+    -fx-text-fill: #f89820;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-padding: 24 20 20 20;
+}
+
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #8b95a8;
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER-LEFT;
+    -fx-padding: 10 20 10 20;
+    -fx-cursor: hand;
+    -fx-pref-width: 210px;
+    -fx-border-width: 0;
+    -fx-background-radius: 0;
+}
+
+.nav-button:hover {
+    -fx-background-color: #161a22;
+    -fx-text-fill: #e2e8f0;
+}
+
+.nav-button.active {
+    -fx-background-color: #161a22;
+    -fx-text-fill: #14b8a6;
+    -fx-border-color: #14b8a6;
+    -fx-border-width: 0 0 0 3;
+}
+
+/* ── Topbar ───────────────────────────────────────────────────── */
+.topbar {
+    -fx-background-color: #111318;
+    -fx-border-color: #252c3b;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 0 20 0 20;
+    -fx-min-height: 50px;
+    -fx-max-height: 50px;
+    -fx-pref-height: 50px;
+    -fx-alignment: CENTER-LEFT;
+    -fx-spacing: 12;
+}
+
+.view-title {
+    -fx-text-fill: #e2e8f0;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+/* ── ComboBox (mode selector) ─────────────────────────────────── */
+.mode-combo {
+    -fx-background-color: #161a22;
+    -fx-border-color: #252c3b;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-text-fill: #e2e8f0;
+    -fx-padding: 4 10 4 10;
+    -fx-cursor: hand;
+}
+
+.mode-combo .list-cell {
+    -fx-background-color: #161a22;
+    -fx-text-fill: #e2e8f0;
+}
+
+.mode-combo .list-cell:hover {
+    -fx-background-color: #252c3b;
+}
+
+.mode-combo .arrow-button {
+    -fx-background-color: transparent;
+}
+
+.mode-combo .arrow {
+    -fx-background-color: #8b95a8;
+}
+
+/* ── Performance metric label ─────────────────────────────────── */
+.perf-label {
+    -fx-text-fill: #14b8a6;
+    -fx-font-size: 11px;
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-background-color: #0d1a18;
+    -fx-background-radius: 4px;
+    -fx-padding: 3 8 3 8;
+    -fx-border-color: #14b8a6;
+    -fx-border-radius: 4px;
+    -fx-border-width: 1;
+}
+
+/* ── Center / Content area ────────────────────────────────────── */
+.content-area {
+    -fx-background-color: #0d0f14;
+}
+
+/* ── Surface cards ────────────────────────────────────────────── */
+.surface {
+    -fx-background-color: #161a22;
+    -fx-border-color: #252c3b;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-border-width: 1;
+}
+
+/* ── Task list cells ──────────────────────────────────────────── */
+.task-list-view {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+}
+
+.task-list-view .list-cell {
+    -fx-background-color: #161a22;
+    -fx-text-fill: #e2e8f0;
+    -fx-border-color: #252c3b;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 10 16 10 16;
+}
+
+.task-list-view .list-cell:hover {
+    -fx-background-color: #1e2330;
+}
+
+.task-list-view .list-cell:selected {
+    -fx-background-color: #0d2420;
+    -fx-border-color: #14b8a6;
+    -fx-border-width: 0 0 0 3;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn-accent {
+    -fx-background-color: #14b8a6;
+    -fx-text-fill: #0d0f14;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6px;
+    -fx-padding: 8 18 8 18;
+    -fx-cursor: hand;
+}
+
+.btn-accent:hover {
+    -fx-background-color: #0d9488;
+}
+
+.btn-danger {
+    -fx-background-color: #7f1d1d;
+    -fx-text-fill: #fca5a5;
+    -fx-background-radius: 6px;
+    -fx-padding: 8 18 8 18;
+    -fx-cursor: hand;
+}
+
+.btn-danger:hover {
+    -fx-background-color: #991b1b;
+}
+
+/* ── Text fields ──────────────────────────────────────────────── */
+.text-field, .text-area {
+    -fx-background-color: #161a22;
+    -fx-border-color: #252c3b;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-text-fill: #e2e8f0;
+    -fx-prompt-text-fill: #4b5563;
+    -fx-padding: 8 12 8 12;
+}
+
+.text-field:focused, .text-area:focused {
+    -fx-border-color: #14b8a6;
+}
+
+/* ── Priority badges ──────────────────────────────────────────── */
+.badge-critical { -fx-text-fill: #f87171; }
+.badge-high     { -fx-text-fill: #fb923c; }
+.badge-medium   { -fx-text-fill: #facc15; }
+.badge-low      { -fx-text-fill: #4ade80; }
+.badge-minimal  { -fx-text-fill: #94a3b8; }
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+.scroll-bar {
+    -fx-background-color: #111318;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #252c3b;
+    -fx-background-radius: 4px;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #374151;
+}
+
+/* ── Separator ────────────────────────────────────────────────── */
+.separator .line {
+    -fx-border-color: #252c3b;
+    -fx-border-width: 1 0 0 0;
+}

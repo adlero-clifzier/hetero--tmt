@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.hetero.controller.AllTasksController"
+      spacing="0" style="-fx-padding:0;">
+
+    <!-- ── Toolbar ── -->
+    <HBox spacing="10" style="-fx-padding:16 20 12 20;" alignment="CENTER_LEFT">
+        <TextField fx:id="tfSearch" promptText="Search tasks…" prefWidth="220"/>
+        <ComboBox fx:id="cmbFilter" prefWidth="140"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="lblCount" style="-fx-text-fill:#6b7280;-fx-font-size:12px;"/>
+        <Button text="+ New Task" styleClass="btn-accent" onAction="#onNewTask"/>
+    </HBox>
+    <Separator/>
+
+    <!-- ── Inline form panel (hidden by default) ── -->
+    <VBox fx:id="formPanel" styleClass="form-panel" visible="false" managed="false"
+          spacing="12" style="-fx-margin:16 20;">
+        <padding><Insets top="16" right="20" bottom="16" left="20"/></padding>
+        <HBox alignment="CENTER_LEFT">
+            <Label fx:id="lblFormTitle" text="New Task" styleClass="form-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="✕" styleClass="btn-ghost" onAction="#onCancel" style="-fx-padding:4 10;"/>
+        </HBox>
+        <Separator/>
+        <HBox spacing="14">
+            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label text="TITLE *" styleClass="field-label"/>
+                <TextField fx:id="fTitle" promptText="Task title"/>
+            </VBox>
+            <VBox spacing="4" prefWidth="160">
+                <Label text="CATEGORY" styleClass="field-label"/>
+                <TextField fx:id="fCategory" promptText="General"/>
+            </VBox>
+            <VBox spacing="4" prefWidth="150">
+                <Label text="PRIORITY" styleClass="field-label"/>
+                <ComboBox fx:id="fPriority" maxWidth="Infinity"/>
+            </VBox>
+            <VBox spacing="4" prefWidth="150">
+                <Label text="DUE DATE" styleClass="field-label"/>
+                <DatePicker fx:id="fDue" maxWidth="Infinity"/>
+            </VBox>
+        </HBox>
+        <VBox spacing="4">
+            <Label text="NOTES" styleClass="field-label"/>
+            <TextArea fx:id="fNotes" promptText="Optional notes…" prefRowCount="2"/>
+        </VBox>
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button text="Cancel" styleClass="btn-ghost" onAction="#onCancel"/>
+            <Button fx:id="btnSave" text="Add Task" styleClass="btn-accent" onAction="#onSave"/>
+        </HBox>
+    </VBox>
+
+    <!-- ── Table ── -->
+    <TableView fx:id="table" VBox.vgrow="ALWAYS" style="-fx-margin:0 20 20 20;">
+        <padding><Insets top="0" right="20" bottom="20" left="20"/></padding>
+        <columns>
+            <TableColumn fx:id="colDone"     text="✓"        prefWidth="40"  minWidth="40"  maxWidth="40"/>
+            <TableColumn fx:id="colTitle"    text="TITLE"    prefWidth="280"/>
+            <TableColumn fx:id="colPriority" text="PRIORITY" prefWidth="100"/>
+            <TableColumn fx:id="colCategory" text="CATEGORY" prefWidth="120"/>
+            <TableColumn fx:id="colDue"      text="DUE DATE" prefWidth="110"/>
+            <TableColumn fx:id="colActions"  text="ACTIONS"  prefWidth="140"/>
+        </columns>
+        <placeholder>
+            <Label text="No tasks yet — click '+ New Task' to get started"
+                   style="-fx-text-fill:#374151;-fx-font-size:14px;"/>
+        </placeholder>
+    </TableView>
+
+</VBox>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.hetero.controller.TodayController"
+      spacing="16" style="-fx-padding:28;">
+
+    <Label fx:id="lblDate"  style="-fx-text-fill:#e2e8f0;-fx-font-size:22px;-fx-font-weight:bold;"/>
+    <Label fx:id="lblCount" style="-fx-text-fill:#6b7280;-fx-font-size:13px;"/>
+    <Separator/>
+
+    <VBox styleClass="card" spacing="0" VBox.vgrow="ALWAYS">
+        <ListView fx:id="listView" VBox.vgrow="ALWAYS" prefHeight="400" styleClass="list-view">
+            <placeholder>
+                <Label text="Nothing due today 🎉" style="-fx-text-fill:#4b5563;-fx-font-size:14px;"/>
+            </placeholder>
+        </ListView>
+    </VBox>
+
+</VBox>
