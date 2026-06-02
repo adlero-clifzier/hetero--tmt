@@ -1,12 +1,14 @@
 package com.hetero.repository;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import com.hetero.db.DatabaseManager;
 import com.hetero.model.Priority;
 import com.hetero.model.Task;
-
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * {@link TaskRepository} backed by an {@link ArrayList}.
@@ -20,8 +22,25 @@ public class ArrayListTaskRepo implements TaskRepository {
     private final ArrayList<Task> store = new ArrayList<>();
     private final DatabaseManager db = DatabaseManager.getInstance();
 
-    private static void bench(String operation, long nanos) {
-        System.out.printf("[Benchmark] ArrayList %s: %,d ns%n", operation, nanos);
+    // --- BENCHMARK CONTROL TOGGLES ---
+    private boolean dbEnabled = true;
+    private boolean loggingEnabled = true;
+    private int mockIdCounter = 1;
+
+    /**
+     * Toggles persistence and internal console logging.
+     * Set to true during bulk benchmarks to isolate pure in-memory execution speeds.
+     */
+    public void setTestMode(boolean isTestMode) {
+        this.dbEnabled = !isTestMode;
+        this.loggingEnabled = !isTestMode;
+    }
+
+    // Changed from static to instance method to read control flags safely
+    private void bench(String operation, long nanos) {
+        if (loggingEnabled) {
+            System.out.printf("[Benchmark] ArrayList %s: %,d ns%n", operation, nanos);
+        }
     }
 
     /** {@inheritDoc} O(n) — clears and refills the list. */
@@ -36,8 +55,13 @@ public class ArrayListTaskRepo implements TaskRepository {
     /** {@inheritDoc} O(1) amortised append, then SQLite sync. */
     @Override
     public Task add(Task task) {
-        int generatedId = db.insert(task);
-        task.setId(generatedId);
+        if (dbEnabled) {
+            int generatedId = db.insert(task);
+            task.setId(generatedId);
+        } else {
+            // Generates sequentially safe IDs for search/update validation in RAM
+            task.setId(mockIdCounter++);
+        }
 
         long t0 = System.nanoTime();
         store.add(task);
@@ -57,7 +81,10 @@ public class ArrayListTaskRepo implements TaskRepository {
             }
         }
         bench("Update", System.nanoTime() - t0);
-        db.update(task);
+        
+        if (dbEnabled) {
+            db.update(task);
+        }
     }
 
     /** {@inheritDoc} O(n) scan + O(n) shift on removal, then SQLite sync. */
@@ -66,7 +93,10 @@ public class ArrayListTaskRepo implements TaskRepository {
         long t0 = System.nanoTime();
         store.removeIf(t -> t.getId() == id);
         bench("Delete", System.nanoTime() - t0);
-        db.delete(id);
+        
+        if (dbEnabled) {
+            db.delete(id);
+        }
     }
 
     /** {@inheritDoc} O(n) linear scan. */

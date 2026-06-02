@@ -14,6 +14,7 @@ com\hetero\controller\AllTasksController.class
 com\hetero\controller\DashboardController.class
 com\hetero\app\ThemeManager.class
 com\hetero\controller\AllTasksController$1.class
+com\hetero\test\PerformanceTest.class
 com\hetero\controller\MainLayoutController.class
 com\hetero\app\SessionManager.class
 com\hetero\controller\CategoriesController.class

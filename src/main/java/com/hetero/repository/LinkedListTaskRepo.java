@@ -1,12 +1,15 @@
 package com.hetero.repository;
 
+import java.time.LocalDate;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import com.hetero.db.DatabaseManager;
 import com.hetero.model.Priority;
 import com.hetero.model.Task;
-
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * {@link TaskRepository} backed by a {@link LinkedList}.
@@ -20,8 +23,24 @@ public class LinkedListTaskRepo implements TaskRepository {
     private final LinkedList<Task> store = new LinkedList<>();
     private final DatabaseManager db = DatabaseManager.getInstance();
 
-    private static void bench(String operation, long nanos) {
-        System.out.printf("[Benchmark] LinkedList %s: %,d ns%n", operation, nanos);
+    // --- BENCHMARK CONTROL TOGGLES ---
+    private boolean dbEnabled = true;
+    private boolean loggingEnabled = true;
+    private int mockIdCounter = 1;
+
+    /**
+     * Toggles persistence and internal console logging.
+     * Set to true during bulk benchmarks to isolate pure in-memory execution speeds.
+     */
+    public void setTestMode(boolean isTestMode) {
+        this.dbEnabled = !isTestMode;
+        this.loggingEnabled = !isTestMode;
+    }
+
+    private void bench(String operation, long nanos) {
+        if (loggingEnabled) {
+            System.out.printf("[Benchmark] LinkedList %s: %,d ns%n", operation, nanos);
+        }
     }
 
     /** {@inheritDoc} O(n) — rebuilds the list from scratch. */
@@ -36,8 +55,13 @@ public class LinkedListTaskRepo implements TaskRepository {
     /** {@inheritDoc} O(1) append to tail, then SQLite sync. */
     @Override
     public Task add(Task task) {
-        int generatedId = db.insert(task);
-        task.setId(generatedId);
+        if (dbEnabled) {
+            int generatedId = db.insert(task);
+            task.setId(generatedId);
+        } else {
+            // Generates sequentially safe IDs for search/update validation in RAM
+            task.setId(mockIdCounter++);
+        }
 
         long t0 = System.nanoTime();
         store.addLast(task);
@@ -58,7 +82,10 @@ public class LinkedListTaskRepo implements TaskRepository {
             }
         }
         bench("Update", System.nanoTime() - t0);
-        db.update(task);
+        
+        if (dbEnabled) {
+            db.update(task);
+        }
     }
 
     /** {@inheritDoc} O(n) scan to find and remove, then SQLite sync. */
@@ -67,7 +94,10 @@ public class LinkedListTaskRepo implements TaskRepository {
         long t0 = System.nanoTime();
         store.removeIf(t -> t.getId() == id);
         bench("Delete", System.nanoTime() - t0);
-        db.delete(id);
+        
+        if (dbEnabled) {
+            db.delete(id);
+        }
     }
 
     /** {@inheritDoc} O(n) linear scan. */

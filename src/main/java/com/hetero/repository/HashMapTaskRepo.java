@@ -1,12 +1,15 @@
 package com.hetero.repository;
 
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import com.hetero.db.DatabaseManager;
 import com.hetero.model.Priority;
 import com.hetero.model.Task;
-
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * {@link TaskRepository} backed by a {@link HashMap} keyed on task id.
@@ -19,8 +22,21 @@ public class HashMapTaskRepo implements TaskRepository {
 
     /** The primary in-memory store: id → Task. */
     private final Map<Integer, Task> store = new HashMap<>();
-
     private final DatabaseManager db = DatabaseManager.getInstance();
+
+    // --- BENCHMARK CONTROL TOGGLES ---
+    private boolean dbEnabled = true;
+    private boolean loggingEnabled = true;
+    private int mockIdCounter = 1;
+
+    /**
+     * Toggles persistence and internal console logging.
+     * Set to true during bulk benchmarks to isolate pure in-memory execution speeds.
+     */
+    public void setTestMode(boolean isTestMode) {
+        this.dbEnabled = !isTestMode;
+        this.loggingEnabled = !isTestMode;
+    }
 
     // ── Benchmark helper ──────────────────────────────────────────────────────
 
@@ -30,8 +46,10 @@ public class HashMapTaskRepo implements TaskRepository {
      * @param operation human-readable operation label
      * @param nanos     elapsed nanoseconds
      */
-    private static void bench(String operation, long nanos) {
-        System.out.printf("[Benchmark] HashMap %s: %,d ns%n", operation, nanos);
+    private void bench(String operation, long nanos) {
+        if (loggingEnabled) {
+            System.out.printf("[Benchmark] HashMap %s: %,d ns%n", operation, nanos);
+        }
     }
 
     // ── TaskRepository impl ───────────────────────────────────────────────────
@@ -55,9 +73,14 @@ public class HashMapTaskRepo implements TaskRepository {
      */
     @Override
     public Task add(Task task) {
-        // Write-through: get DB-assigned id first
-        int generatedId = db.insert(task);
-        task.setId(generatedId);
+        if (dbEnabled) {
+            // Write-through: get DB-assigned id first
+            int generatedId = db.insert(task);
+            task.setId(generatedId);
+        } else {
+            // Generates sequentially safe IDs for search/update validation in RAM
+            task.setId(mockIdCounter++);
+        }
 
         long t0 = System.nanoTime();
         store.put(task.getId(), task);
@@ -76,7 +99,9 @@ public class HashMapTaskRepo implements TaskRepository {
         store.put(task.getId(), task);
         bench("Update", System.nanoTime() - t0);
 
-        db.update(task);
+        if (dbEnabled) {
+            db.update(task);
+        }
     }
 
     /**
@@ -89,7 +114,9 @@ public class HashMapTaskRepo implements TaskRepository {
         store.remove(id);
         bench("Delete", System.nanoTime() - t0);
 
-        db.delete(id);
+        if (dbEnabled) {
+            db.delete(id);
+        }
     }
 
     /**
