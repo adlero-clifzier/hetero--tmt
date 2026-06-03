@@ -11,7 +11,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * JavaFX application entry point for the Hetero Task Management System.
+ * JavaFX application entry point for the Hetero Task Management Tool.
  *
  * <p>Responsibilities:
  * <ul>

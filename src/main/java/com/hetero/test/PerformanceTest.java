@@ -30,7 +30,6 @@ public class PerformanceTest {
         };
         
         for (TaskRepository repo : warmupRepos) {
-            // Put every repository strategy into database-bypass test mode
             if (repo instanceof ArrayListTaskRepo) {
                 ((ArrayListTaskRepo) repo).setTestMode(true);
             } else if (repo instanceof LinkedListTaskRepo) {
@@ -39,7 +38,6 @@ public class PerformanceTest {
                 ((HashMapTaskRepo) repo).setTestMode(true);
             }
             
-            // Execute all 9 feature paths silently to trigger JIT compiler optimization
             for (int i = 0; i < 500; i++) {
                 Priority p = (i % 3 == 0) ? Priority.HIGH : (i % 3 == 1) ? Priority.MEDIUM : Priority.LOW;
                 String cat = (i % 2 == 0) ? "Uni" : "Work";
@@ -62,7 +60,7 @@ public class PerformanceTest {
                 repo.delete(targetId);
             }
         }
-        System.out.println("✔ Warmup complete! JIT compiler hotspots optimized.\n");
+        System.out.println(" Warmup complete! JIT compiler hotspots optimized.\n");
 
         // ==================================================
         // 2. INTERACTIVE MENU LOOP
@@ -83,7 +81,7 @@ public class PerformanceTest {
             try {
                 choice = Integer.parseInt(scanner.nextLine().trim());
             } catch (NumberFormatException e) {
-                System.out.println("\n⚠️ Invalid choice! Enter a number from 1 to 5.\n");
+                System.out.println("\n Invalid choice! Enter a number from 1 to 5.\n");
                 continue;
             }
 
@@ -93,7 +91,7 @@ public class PerformanceTest {
             }
 
             if (choice < 1 || choice > 5) {
-                System.out.println("\n⚠️ Choice out of bounds!\n");
+                System.out.println("\n Choice out of bounds!\n");
                 continue;
             }
 
@@ -102,12 +100,12 @@ public class PerformanceTest {
             try {
                 size = Integer.parseInt(scanner.nextLine().trim());
             } catch (NumberFormatException e) {
-                System.out.println("\n⚠️ Invalid scale size! Returning to menu.\n");
+                System.out.println("\n Invalid scale size! Returning to menu.\n");
                 continue;
             }
 
             if (size <= 0) {
-                System.out.println("\n⚠️ Simulation size must be greater than 0.\n");
+                System.out.println("\n Simulation size must be greater than 0.\n");
                 continue;
             }
 
@@ -145,7 +143,6 @@ public class PerformanceTest {
     // 3. METRICS EVALUATION ENGINE (TIME & SPACE)
     // ==================================================
     private static void runFullSuite(TaskRepository repo, int size) {
-        // Enforce database bypass switches uniformly across all implementations
         if (repo instanceof ArrayListTaskRepo) {
             ((ArrayListTaskRepo) repo).setTestMode(true);
         } else if (repo instanceof LinkedListTaskRepo) {
@@ -162,9 +159,8 @@ public class PerformanceTest {
         Runtime runtime = Runtime.getRuntime();
         
         // 1. FEATURE: Add/Insert Task (Bulk)
-        // Request Garbage Collection to minimize noise prior to memory calculation
         System.gc(); 
-        long memBeforeInsert = runtime.totalMemory() - runtime.freeMemory();
+        long memBefore = runtime.totalMemory() - runtime.freeMemory();
         long start = System.nanoTime();
         
         for (int i = 0; i < size; i++) {
@@ -174,12 +170,11 @@ public class PerformanceTest {
             
             Task task = new Task("Task " + i, "Description " + i, priority, category, dueDate);
             task.setCompleted(i % 5 == 0); 
-            
             repo.add(task);
         }
         long insertTime = System.nanoTime() - start;
-        long memAfterInsert = runtime.totalMemory() - runtime.freeMemory();
-        long insertSpaceOverhead = Math.max(0, memAfterInsert - memBeforeInsert);
+        long memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long insertSpace = Math.max(0, memAfter - memBefore);
 
         List<Task> allTasks = repo.findAll();
         if (allTasks.isEmpty()) {
@@ -187,62 +182,93 @@ public class PerformanceTest {
             return;
         }
 
-        // Target a middle node to represent average execution case
         Task targetTask = allTasks.get(size / 2);
         int targetId = targetTask.getId();
 
         // 2. FEATURE: List All Tasks
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.findAll();
         long listTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long listSpace = Math.max(0, memAfter - memBefore);
 
         // 3. FEATURE: Update Task Details
         targetTask.setNotes("Modified Content Tracking");
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.update(targetTask);
         long updateTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long updateSpace = Math.max(0, memAfter - memBefore);
 
         // 4. FEATURE: Find Task by ID
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.findById(targetId);
         long findIdTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long findIdSpace = Math.max(0, memAfter - memBefore);
 
         // 5. FEATURE: Filter by Completion Status
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.findByCompleted(true);
         long filterCompTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long filterCompSpace = Math.max(0, memAfter - memBefore);
 
         // 6. FEATURE: Filter by Tasks Due Today
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.findDueToday();
         long filterTodayTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long filterTodaySpace = Math.max(0, memAfter - memBefore);
 
         // 7. FEATURE: Filter by Category
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.findByCategory("Uni");
         long filterCatTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long filterCatSpace = Math.max(0, memAfter - memBefore);
 
         // 8. FEATURE: Filter by Priority
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.findByPriority(Priority.HIGH);
         long filterPriorTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long filterPriorSpace = Math.max(0, memAfter - memBefore);
 
         // 9. FEATURE: Delete Task
+        System.gc();
+        memBefore = runtime.totalMemory() - runtime.freeMemory();
         start = System.nanoTime();
         repo.delete(targetId);
         long deleteTime = System.nanoTime() - start;
+        memAfter = runtime.totalMemory() - runtime.freeMemory();
+        long deleteSpace = Math.max(0, memAfter - memBefore);
 
         // Output Display Matrix
         System.out.printf("%-32s | %-16s | %-16s\n", "Feature Operation Evaluated", "Execution (Time)", "Heap Space (Delta)");
         System.out.println("---------------------------------------------------------------------------------");
-        System.out.printf("1. Add/Insert Task (Bulk Setup)  | %11.4f ms | %11.2f KB\n", insertTime / 1_000_000.0, insertSpaceOverhead / 1024.0);
-        System.out.printf("2. List All Tasks (findAll)      | %11.4f ms | %11s\n", listTime / 1_000_000.0, "O(n) Copy Vol");
-        System.out.printf("3. Update Task Details (update)   | %11.4f ms | %11s\n", updateTime / 1_000_000.0, "In-Place");
-        System.out.printf("4. Find Task by ID (findById)     | %11.4f ms | %11s\n", findIdTime / 1_000_000.0, "In-Place");
-        System.out.printf("5. Filter by Completion Status    | %11.4f ms | %11s\n", filterCompTime / 1_000_000.0, "Stream Alloc");
-        System.out.printf("6. Filter by Tasks Due Today     | %11.4f ms | %11s\n", filterTodayTime / 1_000_000.0, "Stream Alloc");
-        System.out.printf("7. Filter by Category             | %11.4f ms | %11s\n", filterCatTime / 1_000_000.0, "Stream Alloc");
-        System.out.printf("8. Filter by Priority             | %11.4f ms | %11s\n", filterPriorTime / 1_000_000.0, "Stream Alloc");
-        System.out.printf("9. Delete Task (delete)           | %11.4f ms | %11s\n", deleteTime / 1_000_000.0, "Structure Mod");
+        System.out.printf("1. Add/Insert Task (Bulk Setup)  | %11.4f ms | %11.2f KB\n", insertTime / 1_000_000.0, insertSpace / 1024.0);
+        System.out.printf("2. List All Tasks (findAll)      | %11.4f ms | %11.2f KB\n", listTime / 1_000_000.0, listSpace / 1024.0);
+        System.out.printf("3. Update Task Details (update)  | %11.4f ms | %11.2f KB\n", updateTime / 1_000_000.0, updateSpace / 1024.0);
+        System.out.printf("4. Find Task by ID (findById)     | %11.4f ms | %11.2f KB\n", findIdTime / 1_000_000.0, findIdSpace / 1024.0);
+        System.out.printf("5. Filter by Completion Status    | %11.4f ms | %11.2f KB\n", filterCompTime / 1_000_000.0, filterCompSpace / 1024.0);
+        System.out.printf("6. Filter by Tasks Due Today     | %11.4f ms | %11.2f KB\n", filterTodayTime / 1_000_000.0, filterTodaySpace / 1024.0);
+        System.out.printf("7. Filter by Category             | %11.4f ms | %11.2f KB\n", filterCatTime / 1_000_000.0, filterCatSpace / 1024.0);
+        System.out.printf("8. Filter by Priority             | %11.4f ms | %11.2f KB\n", filterPriorTime / 1_000_000.0, filterPriorSpace / 1024.0);
+        System.out.printf("9. Delete Task (delete)           | %11.4f ms | %11.2f KB\n", deleteTime / 1_000_000.0, deleteSpace / 1024.0);
     }
 }
