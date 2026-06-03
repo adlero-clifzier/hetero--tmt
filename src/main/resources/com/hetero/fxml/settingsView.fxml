@@ -41,9 +41,9 @@
         <VBox styleClass="card" spacing="8">
             <Label text="About" styleClass="form-title"/>
             <Separator/>
-            <Label text="Hetero Task Management System" style="-fx-text-fill:#e2e8f0;-fx-font-size:13px;"/>
+            <Label text="Hetero Task Management Tool" style="-fx-text-fill:#e2e8f0;-fx-font-size:13px;"/>
             <Label text="Version 1.0.0  ·  Java 17  ·  JavaFX 21  ·  SQLite" style="-fx-text-fill:#6b7280;-fx-font-size:12px;"/>
-            <Label text="Strategy Pattern · HashMap · LinkedList · ArrayList" style="-fx-text-fill:#6b7280;-fx-font-size:12px;"/>
+            <Label text="Data Structures · HashMap · LinkedList · ArrayList" style="-fx-text-fill:#6b7280;-fx-font-size:12px;"/>
         </VBox>
 
     </VBox>

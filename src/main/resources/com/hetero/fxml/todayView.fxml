@@ -14,7 +14,7 @@
     <VBox styleClass="card" spacing="0" VBox.vgrow="ALWAYS">
         <ListView fx:id="listView" VBox.vgrow="ALWAYS" prefHeight="400" styleClass="list-view">
             <placeholder>
-                <Label text="Nothing due today 🎉" style="-fx-text-fill:#4b5563;-fx-font-size:14px;"/>
+                <Label text="Nothing due today " style="-fx-text-fill:#4b5563;-fx-font-size:14px;"/>
             </placeholder>
         </ListView>
     </VBox>

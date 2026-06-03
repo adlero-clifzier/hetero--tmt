@@ -12,7 +12,7 @@
 
         <!-- Brand -->
         <Label text="Hetero" styleClass="login-brand"/>
-        <Label text="Task Management System" styleClass="login-sub"/>
+        <Label text="Task Management Tool" styleClass="login-sub"/>
         <VBox.margin><Insets bottom="28"/></VBox.margin>
 
         <!-- Tabs: Sign In / Register -->
