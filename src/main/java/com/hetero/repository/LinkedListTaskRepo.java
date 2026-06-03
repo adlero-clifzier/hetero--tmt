@@ -1,169 +1,304 @@
 package com.hetero.repository;
 
-import java.time.LocalDate;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.time.LocalDate;       // imported class — date comparison for findDueToday
+import java.util.LinkedList;      // java.util collection — backing store
+import java.util.List;            // java.util collection interface
+import java.util.ListIterator;    // iterator for in-place node replacement
+import java.util.Optional;        // nullable return wrapper
+import java.util.stream.Collectors; // Stream terminal operation
 
-import com.hetero.db.DatabaseManager;
-import com.hetero.model.Priority;
-import com.hetero.model.Task;
+import com.hetero.db.DatabaseManager; // custom-built singleton gateway
+import com.hetero.model.Priority;     // custom-built enum
+import com.hetero.model.Task;         // custom-built domain entity
 
 /**
- * {@link TaskRepository} backed by a {@link LinkedList}.
+ * {@link TaskRepository} implementation backed by a {@link LinkedList}.
  *
- * <p>Provides O(1) head/tail insert and O(n) lookup/delete, demonstrating
- * the trade-off versus the HashMap strategy. Benchmark output is emitted
- * for every operation to make the O(n) scan cost visible.
+ * <p><b>Algorithmic complexity:</b>
+ * <ul>
+ *   <li>Insert (tail) — O(1): {@link LinkedList#addLast} updates only two
+ *       node pointers regardless of list length.</li>
+ *   <li>Lookup by id  — O(n): requires a full sequential scan because nodes
+ *       carry no index and cannot be addressed directly.</li>
+ *   <li>Delete by id  — O(n): same sequential scan to find the target node.</li>
+ *   <li>Update by id  — O(n): scan with {@link ListIterator} for in-place set.</li>
+ * </ul>
+ *
+ * <p>This contrasts with {@link HashMapTaskRepo} (O(1) lookup) and
+ * {@link ArrayListTaskRepo} (O(n) with index shift on delete), making the
+ * three strategies an informative benchmark trio.
+ *
+ * <p><b>Specification compliance:</b>
+ * <ul>
+ *   <li><b>Inheritance / polymorphism / interface:</b> {@code implements TaskRepository}.</li>
+ *   <li><b>Java Collection:</b> {@link LinkedList}, {@link List}, {@link ListIterator}.</li>
+ *   <li><b>Imported classes:</b> {@link LocalDate}, {@link LinkedList}, {@link ListIterator},
+ *       {@link Optional}, {@link DatabaseManager}, {@link Task}, {@link Priority}.</li>
+ *   <li><b>Custom-built classes:</b> {@link Task}, {@link Priority}, {@link DatabaseManager}.</li>
+ *   <li><b>Instance variables:</b> {@code taskStore}, {@code databaseManager},
+ *       {@code dbEnabled}, {@code loggingEnabled}, {@code mockIdCounter}.</li>
+ *   <li><b>Primitive data:</b> {@code dbEnabled} (boolean), {@code loggingEnabled} (boolean),
+ *       {@code mockIdCounter} (int), timing delta (long).</li>
+ * </ul>
  */
 public class LinkedListTaskRepo implements TaskRepository {
 
-    private final LinkedList<Task> store = new LinkedList<>();
-    private final DatabaseManager db = DatabaseManager.getInstance();
-
-    // --- BENCHMARK CONTROL TOGGLES ---
-    private boolean dbEnabled = true;
-    private boolean loggingEnabled = true;
-    private int mockIdCounter = 1;
+    // ── Instance variables ────────────────────────────────────────────────────
 
     /**
-     * Toggles persistence and internal console logging.
-     * Set to true during bulk benchmarks to isolate pure in-memory execution speeds.
+     * The primary in-memory data store.
+     * LinkedList chosen for O(1) tail-append and to demonstrate pointer-based
+     * traversal cost vs. the HashMap and ArrayList strategies.
+     */
+    private final LinkedList<Task> taskStore = new LinkedList<>();
+
+    /** Reference to the singleton database gateway for write-through persistence. */
+    private final DatabaseManager databaseManager = DatabaseManager.getInstance();
+
+    /** When {@code false}, all database calls are bypassed (test/benchmark mode). */
+    private boolean dbEnabled = true;
+
+    /** When {@code false}, benchmark console output is suppressed. */
+    private boolean loggingEnabled = true;
+
+    /** Sequential id counter used in test mode instead of the database. */
+    private int mockIdCounter = 1;
+
+    // ── Test-mode control ─────────────────────────────────────────────────────
+
+    /**
+     * Enables or disables test/benchmark mode.
+     *
+     * @param isTestMode {@code true} disables persistence and logging
      */
     public void setTestMode(boolean isTestMode) {
-        this.dbEnabled = !isTestMode;
+        this.dbEnabled      = !isTestMode;
         this.loggingEnabled = !isTestMode;
     }
 
-    private void bench(String operation, long nanos) {
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Emits a formatted benchmark result to stdout.
+     *
+     * @param operationLabel description of the measured operation
+     * @param elapsedNanos   elapsed nanoseconds measured by {@link System#nanoTime()}
+     */
+    private void printBenchmark(String operationLabel, long elapsedNanos) {
         if (loggingEnabled) {
-            System.out.printf("[Benchmark] LinkedList %s: %,d ns%n", operation, nanos);
+            System.out.printf("[Benchmark] LinkedList %s: %,d ns%n", operationLabel, elapsedNanos);
         }
     }
 
-    /** {@inheritDoc} O(n) — rebuilds the list from scratch. */
+    // ── TaskRepository implementation ─────────────────────────────────────────
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Clears the list and appends all tasks in iteration order.
+     * Complexity: O(n).
+     *
+     * @param tasks full task list from SQLite; must not be null
+     */
     @Override
     public void loadAll(List<Task> tasks) {
-        long t0 = System.nanoTime();
-        store.clear();
-        store.addAll(tasks);
-        bench("LoadAll (" + tasks.size() + " tasks)", System.nanoTime() - t0);
+        long startTime = System.nanoTime();
+
+        taskStore.clear();
+        taskStore.addAll(tasks); // bulk-add preserves the SQLite ordering
+
+        printBenchmark("LoadAll (" + tasks.size() + " tasks)", System.nanoTime() - startTime);
     }
 
-    /** {@inheritDoc} O(1) append to tail, then SQLite sync. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Appends the new task to the tail of the linked list in O(1).
+     * Database insert runs first so the auto-generated id is available.
+     *
+     * @param task the new task; title must not be null
+     * @return the task with its id assigned
+     */
     @Override
     public Task add(Task task) {
         if (dbEnabled) {
-            int generatedId = db.insert(task);
+            // Persist first to get the database-assigned primary key
+            int generatedId = databaseManager.insert(task);
             task.setId(generatedId);
         } else {
-            // Generates sequentially safe IDs for search/update validation in RAM
+            // Test mode: assign sequential mock id without hitting the database
             task.setId(mockIdCounter++);
         }
 
-        long t0 = System.nanoTime();
-        store.addLast(task);
-        bench("Insert", System.nanoTime() - t0);
+        // Time only the in-memory linked-list operation (tail append)
+        long startTime = System.nanoTime();
+        taskStore.addLast(task);
+        printBenchmark("Insert", System.nanoTime() - startTime);
 
         return task;
     }
 
-    /** {@inheritDoc} O(n) scan to find and replace, then SQLite sync. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Scans the list with a {@link ListIterator} for in-place node replacement.
+     * Complexity: O(n) — no random access available in a linked list.
+     *
+     * @param task task with updated fields; matched by id
+     */
     @Override
     public void update(Task task) {
-        long t0 = System.nanoTime();
-        ListIterator<Task> it = store.listIterator();
-        while (it.hasNext()) {
-            if (it.next().getId() == task.getId()) {
-                it.set(task);
+        long startTime = System.nanoTime();
+
+        // Use a ListIterator to allow in-place replacement without removing/re-inserting
+        ListIterator<Task> iterator = taskStore.listIterator();
+        while (iterator.hasNext()) {
+            if (iterator.next().getId() == task.getId()) {
+                iterator.set(task); // O(1) node pointer swap at the current position
                 break;
             }
         }
-        bench("Update", System.nanoTime() - t0);
-        
+
+        printBenchmark("Update", System.nanoTime() - startTime);
+
         if (dbEnabled) {
-            db.update(task);
+            databaseManager.update(task);
         }
     }
 
-    /** {@inheritDoc} O(n) scan to find and remove, then SQLite sync. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Uses {@link LinkedList#removeIf} for a single-pass O(n) scan and removal.
+     *
+     * @param id the primary key of the task to delete
+     */
     @Override
     public void delete(int id) {
-        long t0 = System.nanoTime();
-        store.removeIf(t -> t.getId() == id);
-        bench("Delete", System.nanoTime() - t0);
-        
+        long startTime = System.nanoTime();
+
+        // removeIf traverses once and removes matching node in O(1) pointer update
+        taskStore.removeIf(task -> task.getId() == id);
+
+        printBenchmark("Delete", System.nanoTime() - startTime);
+
         if (dbEnabled) {
-            db.delete(id);
+            databaseManager.delete(id);
         }
     }
 
-    /** {@inheritDoc} O(n) linear scan. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Sequential scan — O(n). No direct addressing is possible in a linked list.
+     *
+     * @param id the primary key to look up
+     * @return an {@link Optional} containing the task, or empty if not found
+     */
     @Override
     public Optional<Task> findById(int id) {
-        long t0 = System.nanoTime();
-        Optional<Task> result = store.stream().filter(t -> t.getId() == id).findFirst();
-        bench("FindById", System.nanoTime() - t0);
+        long startTime = System.nanoTime();
+        Optional<Task> result = taskStore.stream()
+                .filter(task -> task.getId() == id)
+                .findFirst();
+        printBenchmark("FindById", System.nanoTime() - startTime);
         return result;
     }
 
-    /** {@inheritDoc} O(n) — returns a copy of the list. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns an unmodifiable copy of the list — O(n).
+     *
+     * @return unmodifiable snapshot of all tasks
+     */
     @Override
     public List<Task> findAll() {
-        long t0 = System.nanoTime();
-        List<Task> result = List.copyOf(store);
-        bench("FindAll (" + result.size() + " tasks)", System.nanoTime() - t0);
+        long startTime = System.nanoTime();
+        List<Task> result = List.copyOf(taskStore);
+        printBenchmark("FindAll (" + result.size() + " tasks)", System.nanoTime() - startTime);
         return result;
     }
 
-    /** {@inheritDoc} O(n) linear scan. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Linear scan — O(n).
+     *
+     * @param completed {@code true} for completed tasks, {@code false} for pending
+     * @return filtered list
+     */
     @Override
     public List<Task> findByCompleted(boolean completed) {
-        long t0 = System.nanoTime();
-        List<Task> result = store.stream()
-                .filter(t -> t.isCompleted() == completed)
+        long startTime = System.nanoTime();
+        List<Task> result = taskStore.stream()
+                .filter(task -> task.isCompleted() == completed)
                 .collect(Collectors.toList());
-        bench("FindByCompleted", System.nanoTime() - t0);
+        printBenchmark("FindByCompleted", System.nanoTime() - startTime);
         return result;
     }
 
-    /** {@inheritDoc} O(n) linear scan. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Linear scan filtered by comparing {@code dueDate} with today — O(n).
+     *
+     * @return list of tasks due today
+     */
     @Override
     public List<Task> findDueToday() {
-        long t0 = System.nanoTime();
+        long startTime = System.nanoTime();
         LocalDate today = LocalDate.now();
-        List<Task> result = store.stream()
-                .filter(t -> today.equals(t.getDueDate()))
+        List<Task> result = taskStore.stream()
+                .filter(task -> today.equals(task.getDueDate()))
                 .collect(Collectors.toList());
-        bench("FindDueToday", System.nanoTime() - t0);
+        printBenchmark("FindDueToday", System.nanoTime() - startTime);
         return result;
     }
 
-    /** {@inheritDoc} O(n) linear scan. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Linear scan with case-insensitive category match — O(n).
+     *
+     * @param category the category label to filter by
+     * @return filtered list
+     */
     @Override
     public List<Task> findByCategory(String category) {
-        long t0 = System.nanoTime();
-        List<Task> result = store.stream()
-                .filter(t -> category.equalsIgnoreCase(t.getCategory()))
+        long startTime = System.nanoTime();
+        List<Task> result = taskStore.stream()
+                .filter(task -> category.equalsIgnoreCase(task.getCategory()))
                 .collect(Collectors.toList());
-        bench("FindByCategory", System.nanoTime() - t0);
+        printBenchmark("FindByCategory", System.nanoTime() - startTime);
         return result;
     }
 
-    /** {@inheritDoc} O(n) linear scan. */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Linear scan with exact priority enum comparison — O(n).
+     *
+     * @param priority the priority level to filter by
+     * @return filtered list
+     */
     @Override
     public List<Task> findByPriority(Priority priority) {
-        long t0 = System.nanoTime();
-        List<Task> result = store.stream()
-                .filter(t -> t.getPriority() == priority)
+        long startTime = System.nanoTime();
+        List<Task> result = taskStore.stream()
+                .filter(task -> task.getPriority() == priority)
                 .collect(Collectors.toList());
-        bench("FindByPriority", System.nanoTime() - t0);
+        printBenchmark("FindByPriority", System.nanoTime() - startTime);
         return result;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     *
+     * @return the string {@code "LinkedList"}
+     */
     @Override
-    public String getStrategyName() { return "LinkedList"; }
+    public String getStrategyName() {
+        return "LinkedList";
+    }
 }

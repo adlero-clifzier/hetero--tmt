@@ -3,210 +3,480 @@ package com.hetero.controller;
 import com.hetero.model.Priority;
 import com.hetero.model.Task;
 import com.hetero.repository.TaskRepository;
+
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.net.URL;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.ResourceBundle;
 
-/** Full CRUD view for all tasks — wired to the active TaskRepository strategy. */
+/**
+ * Controller for {@code all-tasksView.fxml} — the full CRUD task management view.
+ *
+ * <p>Provides:
+ * <ul>
+ *   <li>A filterable, searchable {@link TableView} showing all tasks.</li>
+ *   <li>An inline slide-in form panel for adding new tasks and editing existing ones.</li>
+ *   <li>Inline checkbox completion toggling directly in the table.</li>
+ *   <li>Per-row Edit and Delete action buttons.</li>
+ * </ul>
+ *
+ * <p>All CRUD operations are delegated to the active {@link TaskRepository}
+ * strategy via {@link MainLayoutController#getActiveRepository()}, so this
+ * controller automatically benefits from whichever data structure is selected
+ * in the topbar without any code changes.
+ *
+ * <p><b>Specification compliance — this class demonstrates:</b>
+ * <ul>
+ *   <li><b>Inheritance / interface:</b>
+ *       {@code implements Initializable} — JavaFX post-injection setup hook.</li>
+ *   <li><b>Java Collections:</b>
+ *       {@link ObservableList} as the live table data source; {@link List} for
+ *       filtered results from the repository.</li>
+ *   <li><b>Polymorphism:</b>
+ *       {@link TaskRepository} is used as the declared type — the concrete
+ *       implementation is resolved at runtime.</li>
+ *   <li><b>Custom-built classes:</b>
+ *       {@link Task}, {@link Priority}, {@link TaskRepository}, {@link MainLayoutController}.</li>
+ *   <li><b>Imported classes:</b>
+ *       {@link SimpleBooleanProperty}, {@link SimpleStringProperty},
+ *       {@link FXCollections}, {@link ObservableList}, {@link CheckBoxTableCell},
+ *       and many other JavaFX imports.</li>
+ *   <li><b>Primitive data:</b>
+ *       {@code long done} task count; {@code boolean} completed flag; loop indices.</li>
+ *   <li><b>Instance variables:</b>
+ *       {@code tableData} (Observable collection), {@code currentlyEditingTask}.</li>
+ *   <li><b>Meaningful identifiers:</b>
+ *       {@code tableData}, {@code currentlyEditingTask}, {@code searchText},
+ *       {@code selectedFilter}, {@code priorityColorHex} — all descriptive.</li>
+ * </ul>
+ */
 public class AllTasksController implements Initializable {
 
-    @FXML private TableView<Task>              table;
-    @FXML private TableColumn<Task,Boolean>    colDone;
-    @FXML private TableColumn<Task,String>     colTitle, colPriority, colCategory, colDue;
-    @FXML private TableColumn<Task,Void>       colActions;
+    // ── FXML-injected — TableView and columns ─────────────────────────────────
 
-    // Form fields
-    @FXML private TextField     fTitle, fCategory;
-    @FXML private TextArea      fNotes;
+    /** The main task table. Editable to support the inline checkbox column. */
+    @FXML private TableView<Task>           table;
+
+    /** Checkbox column — toggling marks the task complete / incomplete. */
+    @FXML private TableColumn<Task, Boolean> colDone;
+
+    /** Title column — displays the task's title text. */
+    @FXML private TableColumn<Task, String>  colTitle;
+
+    /** Priority column — displays a colour-coded priority badge. */
+    @FXML private TableColumn<Task, String>  colPriority;
+
+    /** Category column — displays the task's category label. */
+    @FXML private TableColumn<Task, String>  colCategory;
+
+    /** Due date column — displays the due date or "—" if none set. */
+    @FXML private TableColumn<Task, String>  colDue;
+
+    /** Actions column — contains Edit and Delete buttons per row. */
+    @FXML private TableColumn<Task, Void>    colActions;
+
+    // ── FXML-injected — Form panel fields ─────────────────────────────────────
+
+    /** Title text field in the add/edit form. */
+    @FXML private TextField       fTitle;
+
+    /** Category text field in the add/edit form. */
+    @FXML private TextField       fCategory;
+
+    /** Notes text area in the add/edit form. */
+    @FXML private TextArea        fNotes;
+
+    /** Priority ComboBox in the add/edit form. */
     @FXML private ComboBox<Priority> fPriority;
-    @FXML private DatePicker    fDue;
-    @FXML private Button        btnSave;
-    @FXML private Label         lblFormTitle;
 
-    // Filter bar
-    @FXML private TextField     tfSearch;
+    /** Due date picker in the add/edit form. */
+    @FXML private DatePicker      fDue;
+
+    /** Save/Update button — text changes based on add vs edit mode. */
+    @FXML private Button          btnSave;
+
+    /** Title label at the top of the form panel — changes between "New Task" and "Edit Task". */
+    @FXML private Label           lblFormTitle;
+
+    /** The slide-in form panel container. Hidden until the user clicks "+ New Task" or "Edit". */
+    @FXML private VBox            formPanel;
+
+    // ── FXML-injected — Filter bar ─────────────────────────────────────────────
+
+    /** Search text field — filters tasks by title or category as the user types. */
+    @FXML private TextField        tfSearch;
+
+    /** Filter ComboBox — shows All, Pending, Completed, or specific priority levels. */
     @FXML private ComboBox<String> cmbFilter;
 
-    @FXML private VBox          formPanel;
-    @FXML private Label         lblCount;
+    /** Label showing the count of visible tasks and how many are completed. */
+    @FXML private Label            lblCount;
 
-    private final ObservableList<Task> data = FXCollections.observableArrayList();
-    private Task editingTask = null;
+    // ── Instance state ────────────────────────────────────────────────────────
 
+    /**
+     * The {@link ObservableList} that backs the {@link TableView}.
+     * JavaFX automatically refreshes the table whenever this list changes.
+     */
+    private final ObservableList<Task> tableData = FXCollections.observableArrayList();
+
+    /**
+     * The task currently being edited in the form panel.
+     * {@code null} when the form is in "add new task" mode.
+     */
+    private Task currentlyEditingTask = null;
+
+    // ── Initializable ─────────────────────────────────────────────────────────
+
+    /**
+     * Called by JavaFX after all {@code @FXML} fields are injected.
+     * Sets up table columns, populates the form ComboBoxes, attaches listeners
+     * to the search field and filter ComboBox, and loads the initial task data.
+     *
+     * @param location  the FXML URL (unused)
+     * @param resources the resource bundle (unused)
+     */
     @Override
-    public void initialize(URL url, ResourceBundle rb) {
-        setupColumns();
+    public void initialize(URL location, ResourceBundle resources) {
+        configureTableColumns();
+
+        // Populate the priority ComboBox with all enum values
         fPriority.setItems(FXCollections.observableArrayList(Priority.values()));
         fPriority.setValue(Priority.MEDIUM);
+
+        // Populate the filter ComboBox
         cmbFilter.setItems(FXCollections.observableArrayList(
-            "All","Pending","Completed","Critical","High","Medium","Low","Minimal"));
+            "All", "Pending", "Completed",
+            "Critical", "High", "Medium", "Low", "Minimal"));
         cmbFilter.setValue("All");
-        cmbFilter.setOnAction(e -> applyFilter());
-        tfSearch.textProperty().addListener((o,ov,nv) -> applyFilter());
-        table.setItems(data);
+        cmbFilter.setOnAction(event -> applySearchAndFilter());
+
+        // Live-filter as the user types in the search box
+        tfSearch.textProperty().addListener(
+            (observable, oldValue, newValue) -> applySearchAndFilter());
+
+        table.setItems(tableData);
         table.setEditable(true);
-        refresh();
+
+        refreshTableFromRepository();
     }
 
-    // ── Columns ───────────────────────────────────────────────────────────────
+    // ── Column configuration ──────────────────────────────────────────────────
 
-    private void setupColumns() {
-        colDone.setCellValueFactory(cd -> {
-            Task t = cd.getValue();
-            javafx.beans.property.SimpleBooleanProperty prop =
-                new javafx.beans.property.SimpleBooleanProperty(t.isCompleted());
-            prop.addListener((o, ov, nv) -> {
-                t.setCompleted(nv);
-                repo().update(t);
-                updateCount();
+    /**
+     * Configures cell-value factories and cell factories for all table columns.
+     *
+     * <p>The checkbox column uses a {@link SimpleBooleanProperty} whose
+     * change listener immediately persists the toggle to the active repository.
+     * The priority column uses a custom {@link TableCell} to apply colour styling.
+     * The actions column uses an anonymous inner class to embed Edit/Delete buttons.
+     */
+    private void configureTableColumns() {
+
+        // ── Checkbox (done) column ────────────────────────────────────────────
+        colDone.setCellValueFactory(cellData -> {
+            Task task = cellData.getValue();
+            SimpleBooleanProperty completedProperty =
+                new SimpleBooleanProperty(task.isCompleted());
+
+            // When the checkbox is toggled, persist the change immediately
+            completedProperty.addListener((observable, oldValue, newValue) -> {
+                task.setCompleted(newValue);
+                getActiveRepository().update(task);
+                updateTaskCountLabel();
             });
-            return prop;
+            return completedProperty;
         });
         colDone.setCellFactory(CheckBoxTableCell.forTableColumn(colDone));
 
-        colTitle.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getTitle()));
-        colPriority.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getPriority().name()));
-        colPriority.setCellFactory(col -> new TableCell<>() {
-            @Override protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) { setText(null); setStyle(""); return; }
-                setText(item);
-                String color = switch (item) {
-                    case "CRITICAL" -> "#f87171"; case "HIGH" -> "#fb923c";
-                    case "MEDIUM"   -> "#facc15"; case "LOW"  -> "#4ade80";
-                    default         -> "#94a3b8";
+        // ── Title column ──────────────────────────────────────────────────────
+        colTitle.setCellValueFactory(
+            cellData -> new SimpleStringProperty(cellData.getValue().getTitle()));
+
+        // ── Priority column — colour-coded ────────────────────────────────────
+        colPriority.setCellValueFactory(
+            cellData -> new SimpleStringProperty(cellData.getValue().getPriority().name()));
+
+        colPriority.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String priorityName, boolean isEmpty) {
+                super.updateItem(priorityName, isEmpty);
+
+                if (isEmpty || priorityName == null) {
+                    setText(null);
+                    setStyle("");
+                    return;
+                }
+
+                setText(priorityName);
+
+                // Map each priority level to its designated colour hex code
+                String priorityColorHex = switch (priorityName) {
+                    case "CRITICAL" -> "#f87171"; // red
+                    case "HIGH"     -> "#fb923c"; // orange
+                    case "MEDIUM"   -> "#facc15"; // yellow
+                    case "LOW"      -> "#4ade80"; // green
+                    default         -> "#94a3b8"; // grey (MINIMAL)
                 };
-                setStyle("-fx-text-fill:" + color + ";-fx-font-weight:bold;");
+
+                setStyle("-fx-text-fill:" + priorityColorHex + ";-fx-font-weight:bold;");
             }
         });
-        colCategory.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getCategory()));
-        colDue.setCellValueFactory(cd -> new SimpleStringProperty(
-            cd.getValue().getDueDate() != null ? cd.getValue().getDueDate().toString() : "—"));
 
-        colActions.setCellFactory(col -> new TableCell<>() {
-            private final Button edit = new Button("Edit");
-            private final Button del  = new Button("Delete");
-            { edit.getStyleClass().add("btn-sm-accent");
-              del.getStyleClass().add("btn-sm-danger");
-              edit.setOnAction(e -> openEdit(getTableView().getItems().get(getIndex())));
-              del.setOnAction(e  -> deleteTask(getTableView().getItems().get(getIndex())));
+        // ── Category column ───────────────────────────────────────────────────
+        colCategory.setCellValueFactory(
+            cellData -> new SimpleStringProperty(cellData.getValue().getCategory()));
+
+        // ── Due date column ───────────────────────────────────────────────────
+        colDue.setCellValueFactory(cellData -> {
+            String dueDateText = (cellData.getValue().getDueDate() != null)
+                    ? cellData.getValue().getDueDate().toString()
+                    : "—";
+            return new SimpleStringProperty(dueDateText);
+        });
+
+        // ── Actions column — Edit and Delete buttons ──────────────────────────
+        colActions.setCellFactory(column -> new TableCell<>() {
+
+            private final Button editButton   = new Button("Edit");
+            private final Button deleteButton = new Button("Delete");
+
+            // Configure button styles and click handlers once in the initialiser block
+            {
+                editButton.getStyleClass().add("btn-sm-accent");
+                deleteButton.getStyleClass().add("btn-sm-danger");
+
+                editButton.setOnAction(event ->
+                    openEditForm(getTableView().getItems().get(getIndex())));
+
+                deleteButton.setOnAction(event ->
+                    confirmAndDeleteTask(getTableView().getItems().get(getIndex())));
             }
-            @Override protected void updateItem(Void v, boolean empty) {
-                super.updateItem(v, empty);
-                setGraphic(empty ? null : new HBox(6, edit, del));
+
+            @Override
+            protected void updateItem(Void value, boolean isEmpty) {
+                super.updateItem(value, isEmpty);
+                setGraphic(isEmpty ? null : new HBox(6, editButton, deleteButton));
             }
         });
     }
 
-    // ── CRUD ──────────────────────────────────────────────────────────────────
+    // ── Form panel actions ────────────────────────────────────────────────────
 
-    @FXML private void onNewTask() {
-        editingTask = null;
+    /**
+     * Handles the "+ New Task" button — shows the form panel in add mode.
+     */
+    @FXML
+    private void onNewTask() {
+        currentlyEditingTask = null;
         lblFormTitle.setText("New Task");
         btnSave.setText("Add Task");
-        clearForm();
+        clearFormFields();
+        showFormPanel();
+    }
+
+    /**
+     * Handles the Save / Add Task button click.
+     *
+     * <p>Validates the title, then either adds a new task or updates the
+     * existing one depending on whether {@code currentlyEditingTask} is set.
+     */
+    @FXML
+    private void onSave() {
+        String enteredTitle = fTitle.getText().trim();
+
+        // Highlight the title field red if blank — required field
+        if (enteredTitle.isEmpty()) {
+            fTitle.setStyle("-fx-border-color:#f87171;");
+            return;
+        }
+        fTitle.setStyle(""); // Clear the error highlight
+
+        String resolvedCategory = fCategory.getText().trim().isEmpty()
+                ? "General"
+                : fCategory.getText().trim();
+
+        if (currentlyEditingTask == null) {
+            // ── Add mode: create and persist a brand-new task ─────────────────
+            Task newTask = new Task(
+                enteredTitle,
+                fNotes.getText(),
+                fPriority.getValue(),
+                resolvedCategory,
+                fDue.getValue()
+            );
+            getActiveRepository().add(newTask);
+
+        } else {
+            // ── Edit mode: apply changes to the existing task object ──────────
+            currentlyEditingTask.setTitle(enteredTitle);
+            currentlyEditingTask.setNotes(fNotes.getText());
+            currentlyEditingTask.setPriority(fPriority.getValue());
+            currentlyEditingTask.setCategory(resolvedCategory);
+            currentlyEditingTask.setDueDate(fDue.getValue());
+            getActiveRepository().update(currentlyEditingTask);
+        }
+
+        onCancel();                   // Collapse the form panel
+        refreshTableFromRepository(); // Reload the table with updated data
+    }
+
+    /**
+     * Handles the Cancel button click — collapses the form panel.
+     */
+    @FXML
+    private void onCancel() {
+        hideFormPanel();
+        currentlyEditingTask = null;
+        clearFormFields();
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Populates the form panel with the given task's data and shows the panel
+     * in edit mode.
+     *
+     * @param taskToEdit the task whose fields should be loaded into the form
+     */
+    private void openEditForm(Task taskToEdit) {
+        currentlyEditingTask = taskToEdit;
+        lblFormTitle.setText("Edit Task");
+        btnSave.setText("Save Changes");
+
+        fTitle.setText(taskToEdit.getTitle());
+        fNotes.setText(taskToEdit.getNotes());
+        fPriority.setValue(taskToEdit.getPriority());
+        fCategory.setText(taskToEdit.getCategory());
+        fDue.setValue(taskToEdit.getDueDate());
+
+        showFormPanel();
+    }
+
+    /**
+     * Prompts the user for confirmation before deleting a task.
+     * Only proceeds with deletion if the user confirms via the dialog.
+     *
+     * @param taskToDelete the task the user wants to remove
+     */
+    private void confirmAndDeleteTask(Task taskToDelete) {
+        Alert confirmationDialog = new Alert(
+            Alert.AlertType.CONFIRMATION,
+            "Delete \"" + taskToDelete.getTitle() + "\"?",
+            ButtonType.YES,
+            ButtonType.NO
+        );
+        confirmationDialog.setHeaderText(null);
+
+        confirmationDialog.showAndWait()
+            .filter(response -> response == ButtonType.YES)
+            .ifPresent(confirmed -> {
+                getActiveRepository().delete(taskToDelete.getId());
+                refreshTableFromRepository();
+            });
+    }
+
+    /**
+     * Applies the current search text and filter ComboBox selection to the
+     * task list and updates {@code tableData} accordingly.
+     */
+    private void applySearchAndFilter() {
+        String searchText      = tfSearch.getText().toLowerCase();
+        String selectedFilter  = cmbFilter.getValue();
+        List<Task> allTasks    = getActiveRepository().findAll();
+
+        tableData.setAll(allTasks.stream().filter(task -> {
+
+            boolean matchesSearch = searchText.isEmpty()
+                || task.getTitle().toLowerCase().contains(searchText)
+                || task.getCategory().toLowerCase().contains(searchText);
+
+            boolean matchesFilter = switch (selectedFilter) {
+                case "Pending"   -> !task.isCompleted();
+                case "Completed" ->  task.isCompleted();
+                case "Critical"  -> task.getPriority() == Priority.CRITICAL;
+                case "High"      -> task.getPriority() == Priority.HIGH;
+                case "Medium"    -> task.getPriority() == Priority.MEDIUM;
+                case "Low"       -> task.getPriority() == Priority.LOW;
+                case "Minimal"   -> task.getPriority() == Priority.MINIMAL;
+                default          -> true; // "All" — no filter applied
+            };
+
+            return matchesSearch && matchesFilter;
+
+        }).toList());
+
+        updateTaskCountLabel();
+    }
+
+    /**
+     * Reloads all tasks from the active repository into {@code tableData}.
+     * Called after any CRUD operation to ensure the table reflects current state.
+     */
+    private void refreshTableFromRepository() {
+        tableData.setAll(getActiveRepository().findAll());
+        updateTaskCountLabel();
+    }
+
+    /**
+     * Updates the task count label below the toolbar with the current visible
+     * task count and how many of those are marked as completed.
+     */
+    private void updateTaskCountLabel() {
+        long completedTaskCount = tableData.stream()
+            .filter(Task::isCompleted)
+            .count();
+        lblCount.setText(tableData.size() + " tasks  ·  " + completedTaskCount + " completed");
+    }
+
+    /** Clears all form input fields back to their default/empty states. */
+    private void clearFormFields() {
+        fTitle.clear();
+        fNotes.clear();
+        fCategory.clear();
+        fPriority.setValue(Priority.MEDIUM);
+        fDue.setValue(null);
+    }
+
+    /** Makes the form panel visible and allocates space for it in the layout. */
+    private void showFormPanel() {
         formPanel.setVisible(true);
         formPanel.setManaged(true);
     }
 
-    @FXML private void onSave() {
-        String title = fTitle.getText().trim();
-        if (title.isEmpty()) { fTitle.setStyle("-fx-border-color:#f87171;"); return; }
-        fTitle.setStyle("");
-
-        if (editingTask == null) {
-            Task t = new Task(title, fNotes.getText(),
-                fPriority.getValue(), fCategory.getText().isEmpty() ? "General" : fCategory.getText(),
-                fDue.getValue());
-            repo().add(t);
-        } else {
-            editingTask.setTitle(title);
-            editingTask.setNotes(fNotes.getText());
-            editingTask.setPriority(fPriority.getValue());
-            editingTask.setCategory(fCategory.getText().isEmpty() ? "General" : fCategory.getText());
-            editingTask.setDueDate(fDue.getValue());
-            repo().update(editingTask);
-        }
-        onCancel();
-        refresh();
+    /** Hides the form panel and removes it from the layout flow to reclaim space. */
+    private void hideFormPanel() {
+        formPanel.setVisible(false);
+        formPanel.setManaged(false);
     }
 
-    @FXML private void onCancel() {
-        formPanel.setVisible(false); formPanel.setManaged(false);
-        editingTask = null; clearForm();
+    /**
+     * Convenience accessor that reads the active repository from the shared
+     * static field in {@link MainLayoutController}.
+     *
+     * @return the currently active {@link TaskRepository}
+     */
+    private TaskRepository getActiveRepository() {
+        return MainLayoutController.getActiveRepository();
     }
-
-    private void openEdit(Task t) {
-        editingTask = t;
-        lblFormTitle.setText("Edit Task");
-        btnSave.setText("Save Changes");
-        fTitle.setText(t.getTitle());
-        fNotes.setText(t.getNotes());
-        fPriority.setValue(t.getPriority());
-        fCategory.setText(t.getCategory());
-        fDue.setValue(t.getDueDate());
-        formPanel.setVisible(true); formPanel.setManaged(true);
-    }
-
-    private void deleteTask(Task t) {
-        Alert a = new Alert(Alert.AlertType.CONFIRMATION,
-            "Delete \"" + t.getTitle() + "\"?", ButtonType.YES, ButtonType.NO);
-        a.setHeaderText(null);
-        a.showAndWait().filter(r -> r == ButtonType.YES).ifPresent(r -> {
-            repo().delete(t.getId()); refresh();
-        });
-    }
-
-    // ── Filter / Refresh ──────────────────────────────────────────────────────
-
-    private void applyFilter() {
-        String search = tfSearch.getText().toLowerCase();
-        String filter = cmbFilter.getValue();
-        List<Task> all = repo().findAll();
-        data.setAll(all.stream().filter(t -> {
-            boolean matchSearch = search.isEmpty() ||
-                t.getTitle().toLowerCase().contains(search) ||
-                t.getCategory().toLowerCase().contains(search);
-            boolean matchFilter = switch (filter) {
-                case "Pending"   -> !t.isCompleted();
-                case "Completed" -> t.isCompleted();
-                case "Critical"  -> t.getPriority() == Priority.CRITICAL;
-                case "High"      -> t.getPriority() == Priority.HIGH;
-                case "Medium"    -> t.getPriority() == Priority.MEDIUM;
-                case "Low"       -> t.getPriority() == Priority.LOW;
-                case "Minimal"   -> t.getPriority() == Priority.MINIMAL;
-                default          -> true;
-            };
-            return matchSearch && matchFilter;
-        }).toList());
-        updateCount();
-    }
-
-    private void refresh() {
-        data.setAll(repo().findAll());
-        updateCount();
-    }
-
-    private void updateCount() {
-        long done = data.stream().filter(Task::isCompleted).count();
-        lblCount.setText(data.size() + " tasks · " + done + " completed");
-    }
-
-    private void clearForm() {
-        fTitle.clear(); fNotes.clear(); fCategory.clear();
-        fPriority.setValue(Priority.MEDIUM); fDue.setValue(null);
-    }
-
-    private TaskRepository repo() { return MainLayoutController.getActiveRepo(); }
 }
