@@ -4,7 +4,6 @@ import com.hetero.app.HeteroApp;
 import com.hetero.app.SessionManager;
 import com.hetero.db.DatabaseManager;
 import com.hetero.model.User;
-
 import javafx.animation.FadeTransition;
 import javafx.animation.TranslateTransition;
 import javafx.fxml.FXML;
@@ -15,139 +14,90 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.util.Duration;
-
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Controller for {@code LoginView.fxml}.
+ * LoginController handles everything on the login screen.
  *
- * <p>Handles two distinct user flows on separate tabs:
- * <ol>
- *   <li><b>Sign In</b> — validates input, calls
- *       {@link DatabaseManager#authenticate}, stores the authenticated
- *       {@link User} in {@link SessionManager}, and transitions to the main layout.</li>
- *   <li><b>Create Account</b> — validates input, calls
- *       {@link DatabaseManager#register}, and switches the tab back to Sign In
- *       with the new username pre-filled.</li>
- * </ol>
+ * The login screen has two tabs:
+ *   1. Sign In  — checks the username and password against the database
+ *   2. Create Account — registers a new user account
  *
- * <p><b>Specification compliance — this class demonstrates:</b>
- * <ul>
- *   <li><b>Instance variables and objects:</b>
- *       All {@code @FXML}-injected controls are private instance variables.</li>
- *   <li><b>Imported classes:</b>
- *       {@link FadeTransition}, {@link TranslateTransition}, {@link Optional},
- *       {@link DatabaseManager}, {@link SessionManager}, {@link User}, etc.</li>
- *   <li><b>Custom-built classes:</b>
- *       {@link HeteroApp}, {@link SessionManager}, {@link DatabaseManager}, {@link User}.</li>
- *   <li><b>Exception handling:</b>
- *       FXML-transition calls ({@link HeteroApp#showMain}) are wrapped in
- *       {@code try/catch}; errors are logged and surfaced to the user via the
- *       error label rather than crashing the application.</li>
- *   <li><b>Primitive data:</b>
- *       {@code boolean ok} from {@link DatabaseManager#register}; string length
- *       check {@code p.length() < 4} uses primitive {@code int} comparison.</li>
- *   <li><b>Meaningful identifiers:</b>
- *       Variables like {@code enteredUsername}, {@code enteredPassword},
- *       {@code confirmPassword} — intent is unambiguous.</li>
- * </ul>
+ * If login succeeds, we save the user in SessionManager and
+ * call HeteroApp.showMain() to switch to the main screen.
+ *
+ * If login fails, we show an error message and play a shake animation
+ * on the button so the user knows something went wrong.
  */
 public class LoginController {
 
-    // ── Logger ────────────────────────────────────────────────────────────────
-
-    /** Logger for authentication events and transition failures. */
     private static final Logger LOGGER = Logger.getLogger(LoginController.class.getName());
 
-    // ── FXML-injected controls — Sign In tab ──────────────────────────────────
+    // ── Sign In tab controls ───────────────────────────────────────────────────
 
-    /** The root tab pane; used to switch to the Sign In tab after registration. */
-    @FXML private TabPane      tabPane;
+    @FXML private TabPane       tabPane;       // Used to switch back to Sign In after registration
+    @FXML private TextField     tfLoginUser;   // Username input on the Sign In tab
+    @FXML private PasswordField pfLoginPass;   // Password input on the Sign In tab
+    @FXML private Label         lblLoginError; // Error message shown on bad credentials
+    @FXML private Button        btnLogin;      // The Sign In button (shakes on failure)
 
-    /** Username text field on the Sign In tab. */
-    @FXML private TextField    tfLoginUser;
+    // ── Create Account tab controls ────────────────────────────────────────────
 
-    /** Password field on the Sign In tab. */
-    @FXML private PasswordField pfLoginPass;
-
-    /** Error label displayed beneath the Sign In form when credentials are invalid. */
-    @FXML private Label        lblLoginError;
-
-    /** The Sign In button — shakes on failed login attempts. */
-    @FXML private Button       btnLogin;
-
-    // ── FXML-injected controls — Register tab ─────────────────────────────────
-
-    /** Username field on the Create Account tab. */
-    @FXML private TextField    tfRegUser;
-
-    /** Optional display name field on the Create Account tab. */
-    @FXML private TextField    tfRegDisplay;
-
-    /** Password field on the Create Account tab. */
-    @FXML private PasswordField pfRegPass;
-
-    /** Confirm-password field on the Create Account tab. */
-    @FXML private PasswordField pfRegConfirm;
-
-    /** Error label displayed beneath the register form on validation failure. */
-    @FXML private Label        lblRegError;
-
-    /** Success label shown when a new account is created successfully. */
-    @FXML private Label        lblRegSuccess;
+    @FXML private TextField     tfRegUser;     // Chosen username
+    @FXML private TextField     tfRegDisplay;  // Optional display name
+    @FXML private PasswordField pfRegPass;     // Password
+    @FXML private PasswordField pfRegConfirm;  // Confirm password
+    @FXML private Label         lblRegError;   // Error message for invalid input
+    @FXML private Label         lblRegSuccess; // Success message after registration
 
     // ── Event handlers ────────────────────────────────────────────────────────
 
     /**
-     * Handles the Sign In button click.
+     * Called when the Sign In button is clicked.
      *
-     * <p>Validates that both fields are non-empty, then delegates to
-     * {@link DatabaseManager#authenticate}. On success, stores the user in
-     * {@link SessionManager} and transitions to the main layout.
-     * On failure, displays an error and plays a shake animation on the button.
+     * Checks that both fields are filled, then asks the database to verify
+     * the credentials. On success the app transitions to the main screen.
+     * On failure an error message appears and the button shakes.
      */
     @FXML
     private void onLogin() {
         String enteredUsername = tfLoginUser.getText().trim();
         String enteredPassword = pfLoginPass.getText();
 
-        // Basic input validation before hitting the database
+        // Both fields must be filled before we bother querying the database
         if (enteredUsername.isEmpty() || enteredPassword.isEmpty()) {
-            showErrorOnLabel(lblLoginError, "Please fill in both fields.");
+            showError(lblLoginError, "Please fill in both fields.");
             return;
         }
 
-        Optional<User> authenticatedUser =
+        Optional<User> result =
             DatabaseManager.getInstance().authenticate(enteredUsername, enteredPassword);
 
-        if (authenticatedUser.isPresent()) {
-            // Credentials valid — start the session and load the main shell
-            SessionManager.login(authenticatedUser.get());
-            LOGGER.info("[Login] User signed in: " + authenticatedUser.get().getUsername());
+        if (result.isPresent()) {
+            // Login successful — save the user and load the main screen
+            SessionManager.login(result.get());
+            LOGGER.info("[Login] Signed in: " + result.get().getUsername());
 
             try {
                 HeteroApp.showMain();
-            } catch (Exception sceneTransitionException) {
-                LOGGER.log(Level.SEVERE,
-                    "[Login] Failed to load main layout.", sceneTransitionException);
-                showErrorOnLabel(lblLoginError, "Application error — please restart.");
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "[Login] Could not load main screen.", e);
+                showError(lblLoginError, "Application error — please restart.");
             }
-
         } else {
-            // No matching account found
-            showErrorOnLabel(lblLoginError, "Invalid username or password.");
-            playShakeAnimation(btnLogin);
+            // Wrong credentials
+            showError(lblLoginError, "Invalid username or password.");
+            playShake(btnLogin);
         }
     }
 
     /**
-     * Handles the Create Account button click.
+     * Called when the Create Account button is clicked.
      *
-     * <p>Validates all fields (non-empty, matching passwords, minimum length),
-     * then calls {@link DatabaseManager#register}. On success, switches to the
-     * Sign In tab with the new username pre-filled.
+     * Validates all four fields, then asks the database to create the account.
+     * If successful, switches to the Sign In tab with the username pre-filled.
      */
     @FXML
     private void onRegister() {
@@ -156,80 +106,75 @@ public class LoginController {
         String enteredPassword    = pfRegPass.getText();
         String confirmPassword    = pfRegConfirm.getText();
 
-        // ── Validation chain ──────────────────────────────────────────────────
-
+        // Check required fields
         if (enteredUsername.isEmpty() || enteredPassword.isEmpty()) {
-            showErrorOnLabel(lblRegError, "Username and password are required.");
+            showError(lblRegError, "Username and password are required.");
             return;
         }
 
+        // Check that both password fields match
         if (!enteredPassword.equals(confirmPassword)) {
-            showErrorOnLabel(lblRegError, "Passwords do not match.");
+            showError(lblRegError, "Passwords do not match.");
             return;
         }
 
+        // Enforce minimum password length
         if (enteredPassword.length() < 4) {
-            showErrorOnLabel(lblRegError, "Password must be at least 4 characters.");
+            showError(lblRegError, "Password must be at least 4 characters.");
             return;
         }
 
-        // Use username as display name if none provided
+        // Use the username as display name if the user left that field blank
         String resolvedDisplayName = enteredDisplayName.isEmpty()
                 ? enteredUsername
                 : enteredDisplayName;
 
-        // ── Persist the new account ────────────────────────────────────────────
+        boolean success = DatabaseManager.getInstance()
+            .register(enteredUsername, enteredPassword, resolvedDisplayName);
 
-        boolean registrationSucceeded =
-            DatabaseManager.getInstance().register(
-                enteredUsername, enteredPassword, resolvedDisplayName);
-
-        if (registrationSucceeded) {
+        if (success) {
             lblRegError.setVisible(false);
             lblRegSuccess.setText("Account created! You can now sign in.");
             lblRegSuccess.setVisible(true);
-            LOGGER.info("[Login] New account registered: " + enteredUsername);
+            LOGGER.info("[Login] Registered: " + enteredUsername);
 
             // Switch to Sign In tab and pre-fill the username for convenience
             tabPane.getSelectionModel().select(0);
             tfLoginUser.setText(enteredUsername);
-
         } else {
-            showErrorOnLabel(lblRegError, "That username is already taken.");
+            showError(lblRegError, "That username is already taken.");
         }
     }
 
-    // ── Private UI helpers ────────────────────────────────────────────────────
+    // ── Helper methods ─────────────────────────────────────────────────────────
 
     /**
-     * Sets an error message on the given label, makes it visible, and fades it in.
+     * Shows an error message on the given label with a short fade-in animation.
      *
-     * @param errorLabel the label to update and display
-     * @param message    the error text to show
+     * @param label   the label to display the message on
+     * @param message the error text to show
      */
-    private void showErrorOnLabel(Label errorLabel, String message) {
-        errorLabel.setText(message);
-        errorLabel.setVisible(true);
+    private void showError(Label label, String message) {
+        label.setText(message);
+        label.setVisible(true);
 
-        // Animate in with a short fade to draw the user's attention
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(300), errorLabel);
-        fadeIn.setFromValue(0.0);
-        fadeIn.setToValue(1.0);
-        fadeIn.play();
+        FadeTransition fade = new FadeTransition(Duration.millis(300), label);
+        fade.setFromValue(0.0);
+        fade.setToValue(1.0);
+        fade.play();
     }
 
     /**
-     * Plays a horizontal shake animation on the given node to signal rejection.
-     * Used on the Sign In button when authentication fails.
+     * Plays a horizontal shake animation on the given button.
+     * Used to signal that a login attempt was rejected.
      *
-     * @param targetNode the UI node to animate
+     * @param target the button to shake
      */
-    private void playShakeAnimation(Node targetNode) {
-        TranslateTransition shakeTransition =
-            new TranslateTransition(Duration.millis(60), targetNode);
-        shakeTransition.setByX(8);       // horizontal offset in pixels
-        shakeTransition.setCycleCount(6); // oscillate 6 times
-        shakeTransition.setAutoReverse(true);
-        shakeTransition.play();
+    private void playShake(Node target) {
+        TranslateTransition shake = new TranslateTransition(Duration.millis(60), target);
+        shake.setByX(8);
+        shake.setCycleCount(6);
+        shake.setAutoReverse(true);
+        shake.play();
     }
 }

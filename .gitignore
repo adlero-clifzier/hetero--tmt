@@ -1,0 +1,10 @@
+# Compiled output — no need to track these
+target/
+
+# SQLite database file — regenerated automatically on first run
+hetero.db
+
+# IDE files
+.vscode/
+.idea/
+*.iml

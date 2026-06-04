@@ -3,82 +3,53 @@ package com.hetero.app;
 import com.hetero.model.User;
 
 /**
- * Application-wide session registry that holds the currently authenticated user.
+ * SessionManager remembers who is currently logged in.
  *
- * <p>The Singleton-style static design is appropriate here because there is
- * exactly one active session per JVM process, and controllers across the
- * application need to access the current user without constructor injection.
+ * It holds a single User object in a static variable.
+ * Because it is static, any class in the app can check
+ * who is logged in without needing a reference to this object.
  *
- * <p><b>Specification compliance — this class demonstrates:</b>
- * <ul>
- *   <li><b>Instance variables and objects:</b>
- *       {@code currentUser} is a static object reference of the custom {@link User} type.</li>
- *   <li><b>Custom-built classes:</b>
- *       Uses the custom {@link User} domain entity defined in {@code com.hetero.model}.</li>
- *   <li><b>Proper access control:</b>
- *       The constructor is {@code private} to prevent instantiation.
- *       The {@code currentUser} field is {@code private static} — accessible only
- *       through the controlled public API ({@link #login}, {@link #logout},
- *       {@link #getUser}, {@link #isLoggedIn}).</li>
- *   <li><b>Meaningful identifiers:</b>
- *       {@code currentUser}, {@code authenticatedUser} — intent is clear.</li>
- * </ul>
+ * The constructor is private so nobody can create an instance —
+ * it is meant to be used only through its static methods.
  */
 public final class SessionManager {
 
-    // ── Session state ─────────────────────────────────────────────────────────
-
-    /**
-     * The currently authenticated user, or {@code null} when no session is active.
-     * Set by {@link #login} and cleared by {@link #logout}.
-     */
+    // The user who is currently logged in. Null means nobody is signed in.
     private static User currentUser;
 
-    // ── Constructor ───────────────────────────────────────────────────────────
-
-    /**
-     * Private constructor prevents instantiation.
-     * All members are static — this class is a pure utility registry.
-     */
+    // Prevent instantiation — this class is only used via static methods
     private SessionManager() { }
 
-    // ── Public API ────────────────────────────────────────────────────────────
-
     /**
-     * Starts a session for the provided authenticated user.
+     * Stores the logged-in user after a successful sign-in.
      *
-     * <p>Called by {@link com.hetero.controller.LoginController} immediately after
-     * {@link com.hetero.db.DatabaseManager#authenticate} confirms valid credentials.
-     *
-     * @param authenticatedUser the user who has successfully logged in; must not be null
+     * @param authenticatedUser the user who just logged in
      */
     public static void login(User authenticatedUser) {
         currentUser = authenticatedUser;
     }
 
     /**
-     * Ends the current session by clearing the stored user reference.
-     *
-     * <p>Called by {@link com.hetero.controller.SettingsController#onLogout}
-     * before returning to the login screen.
+     * Clears the session when the user signs out.
+     * After this, getUser() returns null.
      */
     public static void logout() {
         currentUser = null;
     }
 
     /**
-     * Returns the currently authenticated user.
+     * Returns the currently logged-in user, or null if nobody is signed in.
      *
-     * @return the {@link User} who is signed in, or {@code null} if no session is active
+     * @return the current User, or null
      */
     public static User getUser() {
         return currentUser;
     }
 
     /**
-     * Convenience check for whether a user session is currently active.
+     * Quick check — returns true if someone is signed in, false otherwise.
      *
-     * @return {@code true} if a user is signed in; {@code false} otherwise
+     * @return true if a user is logged in
      */
     public static boolean isLoggedIn() {
         return currentUser != null;

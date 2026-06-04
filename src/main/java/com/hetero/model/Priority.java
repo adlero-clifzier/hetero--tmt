@@ -1,38 +1,28 @@
 package com.hetero.model;
 
 /**
- * Enumeration of task priority levels, ordered from highest to lowest urgency.
+ * Priority is an enum that represents how urgent a task is.
  *
- * <p>Used across the Hetero application for:
- * <ul>
- *   <li>Sorting tasks by importance in the All Tasks view.</li>
- *   <li>Filtering tasks in the search bar filter ComboBox.</li>
- *   <li>Colour-coded visual badges in the TableView and ListView cells.</li>
- * </ul>
+ * An enum is a special type that only holds a fixed set of constant values.
+ * We use it here so that priority can only ever be one of these five levels,
+ * which prevents mistakes like typing "Hihg" instead of "HIGH".
  *
- * <p><b>Specification compliance — this enum demonstrates:</b>
- * <ul>
- *   <li><b>Custom-built class:</b> Defined specifically for the Hetero domain.</li>
- *   <li><b>Primitive data:</b> Each constant is an implicitly {@code static final}
- *       field; ordinal values are primitive {@code int} values assigned by the JVM.</li>
- *   <li><b>Detailed documentation:</b> Every constant carries an inline Javadoc
- *       describing its intended use.</li>
- * </ul>
+ * The values are listed from most urgent to least urgent.
  */
 public enum Priority {
 
-    /** Highest urgency — must be resolved immediately. Displayed in red. */
+    /** Drop everything — needs to be done right now. */
     CRITICAL,
 
-    /** High urgency — important and time-sensitive. Displayed in orange. */
+    /** Very important — should be done soon. */
     HIGH,
 
-    /** Standard urgency — normal day-to-day tasks. Displayed in yellow. */
+    /** Normal priority — regular day-to-day task. */
     MEDIUM,
 
-    /** Low urgency — can be deferred without consequence. Displayed in green. */
+    /** Not urgent — can be done whenever there is time. */
     LOW,
 
-    /** Lowest urgency — nice-to-do, no deadline pressure. Displayed in grey. */
+    /** Almost optional — nice to do but no pressure. */
     MINIMAL
 }
