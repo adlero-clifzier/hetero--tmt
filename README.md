@@ -292,9 +292,12 @@ The JIT compiler needs a few hundred executions of a code path before it compile
 
 ## Contributors
 
-[Your names here]
+Dyka Adlero Clifzier Holy Covenant (2902719013)
+Ryan Richard Kalona (2902718774)
+Simran Ramchandani (2902710973)
 
-*OOP & Data Structures — [Your University / Course]*
+*OOP & Data Structures — [Object-Oriented Programming / Data Structures]*
+*[BINUS INTERNATIONAL]*
 
 ---
 
