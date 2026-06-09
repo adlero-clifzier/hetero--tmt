@@ -1,4 +1,4 @@
-# Compiled output — no need to track these
+# Compiled output
 target/
 
 # SQLite database file — regenerated automatically on first run
